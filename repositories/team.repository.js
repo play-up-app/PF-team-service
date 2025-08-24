@@ -61,7 +61,13 @@ export default class TeamRepository {
       
       const team = await this.prisma.team.findUnique({
         where: { id: teamId },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          tournament_id: true,
+          contact_email: true,
+          status: true, 
           team_member: {
             include: {
               profile: {
@@ -73,21 +79,8 @@ export default class TeamRepository {
                   email: true
                 }
               }
-            },
-            orderBy: [
-              { role: 'asc' },
-              { joined_at: 'asc' }
-            ]
-          },
-          tournament: {
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              start_date: true
             }
           }
-          
         }
       });
 
@@ -165,7 +158,7 @@ export default class TeamRepository {
     try {
       const { page, limit } = pagination;
       const skip = (page - 1) * limit;
-      
+      console.log(`🔍 Liste équipes: page ${page}, limit ${limit}`);
       const where = {};
       if (filters.name) {
         where.name = { contains: filters.name, mode: 'insensitive' };
@@ -182,40 +175,49 @@ export default class TeamRepository {
 
       const [teams, total] = await Promise.all([
         this.prisma.team.findMany({
-          where,
-          skip,
-          take: limit,
-          include: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            tournament_id: true,
+            contact_email: true,
+            skill_level: true,
+            status: true,
             team_member: {
-              include: {
+              select: {
+                position: true,
+                role: true,
+                status: true,
                 profile: {
                   select: {
-                    id: true,
                     display_name: true,
-                    first_name: true,
-                    last_name: true
+                    email: true,
                   }
                 }
               }
-            },
-            tournament: {
-              select: {
-                id: true,
-                name: true,
-                status: true
-              }
-            },
-            _count: {
-              select: {
-                team_member: true
-              }
             }
           },
+          where,
+          skip,
+          take: limit,
           orderBy: { created_at: 'desc' }
-        }),
-        this.prisma.team.count({ where })
+        }).then(teams => teams.map(team => ({
+          id: team.id,
+          name: team.name,
+          description: team.description,
+          tournamentId: team.tournament_id,
+          contactEmail: team.contact_email,
+          skillLevel: team.skill_level,
+          status: team.status,
+          members: team.team_member.map(member => ({
+            name: member.profile.display_name,
+            email: member.profile.email,
+            role: member.role,
+            position: member.position,
+            status: member.status
+          }))
+        })))
       ]);
-
       return {
         teams,
         pagination: {
@@ -231,18 +233,18 @@ export default class TeamRepository {
     }
   }
 
-  async addMember(teamId, playerId, role = 'player', position = null) {
+  async addMembers(teamId, players) {
     try {
-      console.log(`➕ Ajout membre ${playerId} à l'équipe ${teamId}`);
-      
-      const member = await this.prisma.team_member.create({
-        data: {
+      console.log(`➕ Ajout membres à l'équipe ${teamId}`);
+
+      const members = await this.prisma.team_member.createManyAndReturn({
+        data: players.map(player => ({
           team_id: teamId,
-          user_id: playerId,
-          role: role,
-          position: position,
+          user_id: player.user_id,
+          role: player.role,
+          position: player.position,
           status: 'active'
-        },
+        })),
         include: {
           profile: {
             select: {
@@ -264,10 +266,10 @@ export default class TeamRepository {
         }
       });
 
-      console.log(`✅ Membre ajouté à l'équipe`);
-      return member;
+      console.log(`✅ Membres ajoutés à l'équipe`);
+      return members;
     } catch (error) {
-      console.error(`❌ Erreur ajout membre: ${error.message}`);
+      console.error(`❌ Erreur ajout membres: ${error.message}`);
       return null;
     }
   }
@@ -359,5 +361,57 @@ export default class TeamRepository {
       return [];
     }
   }
+
+  async deleteTeamByTournament(tournamentId) {
+    try {
+      console.log(`🗑️ Suppression équipes du tournoi ${tournamentId}`);
+      // check if tournament exists else throw error
+      const tournament = await this.prisma.tournament.findUnique({
+        where: { id: tournamentId }
+      });
+
+      if (!tournament) {
+        throw new Error(`Tournoi ${tournamentId} non trouvé`);
+      }
+      // check if there are teams in the tournament else throw error
+      const teams = await this.prisma.team.findMany({
+        where: { tournament_id: tournamentId }
+      });
+      if (teams.length === 0) {
+        throw new Error(`Aucune équipe trouvée pour le tournoi ${tournamentId}`);
+      }
+      
+      // delete teams
+      return await this.prisma.$transaction(async (tx) => {
+        // supprimer team_member
+        await tx.team_member.deleteMany({
+          where: { team_id: { in: teams.map(team => team.id) } }
+        });
+        // supprimer team
+        await tx.team.deleteMany({
+          where: { tournament_id: tournamentId }
+        });
+        return true;
+      })
+    }
+    catch (error) {
+      console.error(`❌ Erreur suppression équipes tournoi: ${error.message}`);
+      return false;
+    }
+  }
+
+  async createTeamWithTournament(teamData) {
+    try {
+        const team = await prismaClient.team.create({
+            data: {
+                ...teamData
+            }
+        })
+        return team
+    } catch (error) {
+        console.error('Error creating team with tournament:', error)
+        throw error
+    }
+    }
 }
 
