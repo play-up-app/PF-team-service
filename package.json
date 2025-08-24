@@ -33,7 +33,11 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "joi": "^18.0.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.4",

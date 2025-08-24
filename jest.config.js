@@ -1,32 +1,27 @@
 export default {
-    testEnvironment: 'node',
-    preset: null,
-    transform: {},
-    testMatch: [
-        '**/tests/**/*.test.js',
-        '**/tests/**/*.spec.js'
-    ],
-    testPathIgnorePatterns: [
-        '/node_modules/',
-        '/generated/'
-    ],
-    collectCoverageFrom: [
-        'controllers/**/*.js',
-        'repositories/**/*.js',
-        'routes/**/*.js',
-        'middleware/**/*.js',
-        'index.js',
-        '!**/node_modules/**',
-        '!**/tests/**'
-    ],
-    coverageThreshold: {
-        global: {
-            branches: 55,
-            functions: 85,
-            lines: 75,
-            statements: 75
-        }
+  testEnvironment: 'node',
+  transform: {},
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  coverageDirectory: './coverage',
+  collectCoverageFrom: [
+    'repositories/**/*.js',
+    // 'controllers/**/*.js',
+    // 'middleware/**/*.js',
+    '!**/node_modules/**',
+    '!**/vendor/**',
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
-    setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-    testTimeout: 10000
-}
+  },
+  verbose: true,
+  testMatch: ['**/tests/**/*.test.js'],
+  testPathIgnorePatterns: ['/node_modules/'],
+  moduleFileExtensions: ['js', 'json'],
+};

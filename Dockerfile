@@ -1,31 +1,33 @@
-# Utiliser l'image Node.js officielle avec Alpine pour la taille réduite
-FROM node:18-alpine
+# Utiliser Node.js 20 avec Alpine Linux (plus léger)
+FROM node:20-alpine
 
 # Définir le répertoire de travail
 WORKDIR /app
 
-# Copier les fichiers de dépendances
+# Copier les fichiers de dépendances en premier (pour optimiser le cache Docker)
 COPY package*.json ./
 
 # Installer les dépendances
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --only=production
 
-# Créer un utilisateur non-root pour la sécurité
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Copier le code source
-COPY . .
+# Copier le schéma Prisma
+COPY prisma ./prisma/
 
 # Générer le client Prisma
 RUN npx prisma generate
 
-# Changer la propriété des fichiers
-RUN chown -R nodejs:nodejs /app
-USER nodejs
+# Copier tout le code source
+COPY . .
 
-# Exposer le port
-EXPOSE 3003
+# Créer le dossier pour les logs
+RUN mkdir -p logs
 
-# Définir la commande de démarrage
-CMD ["npm", "start"] 
+# Exposer le port 3002
+EXPOSE 3002
+
+# Définir les variables d'environnement
+ENV NODE_ENV=production
+ENV PORT=3002
+
+# Commande pour démarrer l'application
+CMD ["node", "index.js"]
