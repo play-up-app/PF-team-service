@@ -8,6 +8,9 @@
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "dev": "nodemon index.js",
+    "prestart": "prisma generate",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
     "start": "node index.js",
     "build": "docker build -t team-service .",
     "lint": "echo 'Linting...' && exit 0",
@@ -37,7 +40,9 @@
     "express-rate-limit": "^8.0.1",
     "helmet": "^8.1.0",
     "joi": "^18.0.0",
-    "winston": "^3.17.0"
+    "multer": "^2.0.2",
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.4",
