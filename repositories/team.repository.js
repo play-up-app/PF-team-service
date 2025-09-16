@@ -412,6 +412,6 @@ export default class TeamRepository {
         console.error('Error creating team with tournament:', error)
         throw error
     }
-    }
+  }
 }
 
