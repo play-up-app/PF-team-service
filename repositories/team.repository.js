@@ -520,7 +520,11 @@ export default class TeamRepository {
           name: teamName,
           tournament_id: tournamentId,
           status: 'confirmed',
-          skill_level: 'amateur' // Valeur par défaut
+          skill_level: 'amateur', // Valeur par défaut
+          description: '', // Valeur par défaut pour éviter None
+          contact_email: '', // Valeur par défaut pour éviter None
+          contact_phone: '', // Valeur par défaut pour éviter None
+          notes: '' // Valeur par défaut pour éviter None
         },
         include: {
           team_member: {
