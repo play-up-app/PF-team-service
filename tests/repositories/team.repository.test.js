@@ -4,6 +4,7 @@ import { jest, expect, describe, it, beforeEach } from '@jest/globals';
 const mockPrismaClient = {
   team: {
     create: jest.fn(),
+    findFirst: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
@@ -22,6 +23,11 @@ const mockPrismaClient = {
   },
   profile: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  users: {
+    create: jest.fn(),
   },
   $transaction: jest.fn((callback) => callback(mockPrismaClient)),
 };
@@ -934,6 +940,100 @@ describe('TeamRepository', () => {
 
       await expect(teamRepository.createTeamWithTournament(mockTeamData))
         .rejects.toThrow('Erreur de création');
+    });
+  });
+
+  // Nouveaux tests: createUser
+  describe('createUser', () => {
+    it('devrait créer un users et un profile liés', async () => {
+      const teamRepositoryLocal = new teamRepository.constructor();
+      const mockEmail = 'john.doe@example.com';
+      const mockName = 'John Doe';
+
+      mockPrismaClient.users.create.mockResolvedValue({ id: 'uuid-1', email: mockEmail });
+      mockPrismaClient.profile.create.mockResolvedValue({ id: 'uuid-1', email: mockEmail, display_name: mockName });
+
+      const result = await teamRepository.createUser({ email: mockEmail, name: mockName });
+
+      expect(mockPrismaClient.users.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ id: expect.any(String), email: mockEmail })
+      });
+      expect(mockPrismaClient.profile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ id: expect.any(String), email: mockEmail, display_name: mockName })
+      });
+      expect(result).toEqual(expect.objectContaining({ email: mockEmail, display_name: mockName }));
+    });
+  });
+
+  // Nouveaux tests: createTeamFromExcel
+  describe('createTeamFromExcel', () => {
+    it('devrait créer une équipe confirmée avec skill_level par défaut', async () => {
+      const teamName = 'Equipe X';
+      const tournamentId = '123e4567-e89b-12d3-a456-426614174000';
+      const mockTeam = { id: 'tid-1', name: teamName, tournament_id: tournamentId, status: 'confirmed', skill_level: 'amateur' };
+      mockPrismaClient.team.create.mockResolvedValue(mockTeam);
+
+      const result = await teamRepository.createTeamFromExcel(tournamentId, teamName);
+
+      expect(mockPrismaClient.team.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ name: teamName, tournament_id: tournamentId, status: 'confirmed', skill_level: 'amateur' }),
+        include: expect.any(Object)
+      });
+      expect(result).toEqual(mockTeam);
+    });
+  });
+
+  // Nouveaux tests: createTeamMemberFromExcel
+  describe('createTeamMemberFromExcel', () => {
+    it('devrait créer un membre avec rôle captain si Capitaine', async () => {
+      const teamId = 't-1';
+      const playerData = { userId: 'u-1', role: 'Capitaine' };
+      const mockMember = { id: 'm-1', team_id: teamId, user_id: 'u-1', role: 'captain' };
+      mockPrismaClient.team_member.create.mockResolvedValue(mockMember);
+
+      const result = await teamRepository.createTeamMemberFromExcel(teamId, playerData);
+
+      expect(mockPrismaClient.team_member.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ team_id: teamId, user_id: 'u-1', role: 'captain', status: 'active', position: null }),
+        include: expect.any(Object)
+      });
+      expect(result).toEqual(mockMember);
+    });
+  });
+
+  // Nouveaux tests: setTeamCaptain
+  describe('setTeamCaptain', () => {
+    it('devrait mettre à jour le captain_id', async () => {
+      const teamId = 't-1';
+      const userId = 'u-1';
+      const mockTeam = { id: teamId, captain_id: userId };
+      mockPrismaClient.team.update.mockResolvedValue(mockTeam);
+
+      const result = await teamRepository.setTeamCaptain(teamId, userId);
+
+      expect(mockPrismaClient.team.update).toHaveBeenCalledWith({
+        where: { id: teamId },
+        data: { captain_id: userId }
+      });
+      expect(result).toEqual(mockTeam);
+    });
+  });
+
+  // Nouveaux tests: findTeamByName
+  describe('findTeamByName', () => {
+    it('devrait retourner l\'équipe si trouvée', async () => {
+      const tournamentId = 'tr-1';
+      const name = 'Equipe Z';
+      const mockTeam = { id: 'tid', name };
+      mockPrismaClient.team.findFirst.mockResolvedValue(mockTeam);
+
+      const result = await teamRepository.findTeamByName(tournamentId, name);
+
+      expect(mockPrismaClient.team.findFirst).toHaveBeenCalledWith({
+        where: { tournament_id: tournamentId, name },
+        include: expect.any(Object)
+      });
+      expect(result).toEqual(mockTeam);
     });
   });
 });
