@@ -1,0 +1,53 @@
+{
+    "tagFormat": "team-service-v${version}",
+    "branches": [
+      "main", 
+      {"name": "develop", "prerelease": "beta"}
+    ],
+    "plugins": [
+      ["@semantic-release/commit-analyzer", {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          {"type": "feat", "scope": "team", "release": "minor"},
+          {"type": "fix", "scope": "team", "release": "patch"},
+          {"type": "perf", "scope": "team", "release": "patch"},
+          {"type": "docs", "scope": "team", "release": false},
+          {"type": "style", "scope": "team", "release": false},
+          {"type": "refactor", "scope": "team", "release": "patch"},
+          {"type": "test", "scope": "team", "release": false},
+          {"breaking": true, "scope": "team", "release": "major"}
+        ]
+      }],
+      ["@semantic-release/release-notes-generator", {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            {"type": "feat", "section": "🚀 Nouvelles fonctionnalités"},
+            {"type": "fix", "section": "🐛 Corrections"},
+            {"type": "perf", "section": "⚡ Optimisations"},
+            {"type": "refactor", "section": "♻️ Refactoring"},
+            {"type": "docs", "section": "📚 Documentation", "hidden": false}
+          ]
+        }
+      }],
+      ["@semantic-release/changelog", {
+        "changelogFile": "CHANGELOG.md"
+      }],
+      ["@semantic-release/git", {
+        "assets": [
+          "CHANGELOG.md",
+          "package.json",
+          "package-lock.json"
+        ],
+        "message": "chore(tournament): release v${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }],
+      ["@semantic-release/github", {
+        "assets": [
+          {
+            "path": "Dockerfile",
+            "label": "Team Service Dockerfile v${nextRelease.version}"
+          }
+        ]
+      }]
+    ]
+  } 

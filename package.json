@@ -1,0 +1,55 @@
+{
+  "name": "team-service",
+  "version": "1.4.2",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "dev": "nodemon index.js",
+    "prestart": "prisma generate",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "start": "node index.js",
+    "build": "docker build -t team-service .",
+    "lint": "echo 'Linting...' && exit 0",
+    "ci": "npm run test:coverage && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/play-up-app/PF-team-service.git",
+    "directory": "services/team-service"
+  },
+  "keywords": [
+    "team",
+    "volleyball",
+    "microservice",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Service de gestion des équipes pour l'application de volleyball",
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "@supabase/supabase-js": "^2.50.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "joi": "^18.0.0",
+    "multer": "^2.0.2",
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.4",
+    "jest": "^30.0.4",
+    "nodemon": "^3.0.2",
+    "prisma": "^6.12.0",
+    "supertest": "^7.1.4",
+    "typescript": "^5.8.3"
+  }
+}
