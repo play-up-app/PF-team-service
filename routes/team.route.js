@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import TeamController from '../controllers/team.controller.js';
 import TeamRepository from '../repositories/team.repository.js';
 import { validateRequest } from '../middleware/validateRequest.js';
@@ -8,7 +9,26 @@ import Joi from 'joi';
 
 const router = express.Router();
 const teamRepository = new TeamRepository();
-const teamController = new TeamController(teamRepository);
+const teamController = new TeamController();
+
+// Configuration de multer pour l'upload de fichiers Excel
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max
+  },
+  fileFilter: (req, file, cb) => {
+    // Accepter seulement les fichiers Excel
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.originalname.endsWith('.xlsx') ||
+        file.originalname.endsWith('.xls')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers Excel (.xlsx, .xls) sont autorisés'), false);
+    }
+  }
+});
 
 // Créer une équipe
 router.post('/',
@@ -106,6 +126,15 @@ router.delete("/:id",
         id: Joi.string().uuid().required()
     }), 'params'),
     (req, res) => teamController.deleteTeam(req, res)
+);
+
+// Route pour l'import Excel des équipes
+router.post('/tournament/:tournamentId/import-teams', 
+    validateRequest(Joi.object({
+        tournamentId: Joi.string().uuid().required()
+    }), 'params'),
+    upload.single('excelFile'),
+    (req, res) => teamController.importTeamsFromExcel(req, res)
 );
 
 export default router;

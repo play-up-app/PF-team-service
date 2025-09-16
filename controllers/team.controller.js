@@ -1,9 +1,11 @@
 import TeamRepository from '../repositories/team.repository.js';
+import ExcelService from '../services/execel.service.js';
 import { logInfo, logError } from '../config/logger.js';
 
 export default class TeamController {
   constructor() {
     this.teamRepository = new TeamRepository();
+    this.excelService = new ExcelService();
   }
 
   validateTeamData(data) {
@@ -522,5 +524,153 @@ export default class TeamController {
         message: 'Erreur interne du serveur'
       });
     }
+  }
+
+  // Méthode pour l'import Excel des équipes
+  importTeamsFromExcel = async (req, res) => {
+    try {
+      // Vérifier qu'un fichier a été uploadé
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Aucun fichier Excel fourni"
+        });
+      }
+
+      const tournamentId = req.params.tournamentId;
+      // const organizerId = "9d78e50a-b679-40e1-8625-cc344b8856ac"; // TODO: Récupérer depuis l'auth
+
+      logInfo('Tentative d\'import Excel des équipes', { 
+        tournamentId, 
+        fileName: req.file.originalname,
+        fileSize: req.file.size 
+      });
+
+      // Valider l'accès au tournoi
+      // await this.teamRepository.validateTournamentAccess(tournamentId, organizerId);
+
+      // Valider le fichier
+      this.excelService.validateFile(req.file);
+
+      // Lire le fichier Excel
+      const excelData = this.excelService.parseExcelFile(req.file.buffer);
+      
+      // Valider les données
+      const validationResult = this.excelService.validateDataStructure(excelData);
+      if (!validationResult.isValid) {
+        logError('Import Excel échoué: données invalides', { 
+          tournamentId, 
+          errors: validationResult.errors 
+        });
+        return res.status(400).json({
+          success: false,
+          message: "Données Excel invalides",
+          errors: validationResult.errors
+        });
+      }
+
+      // Normaliser les données
+      const normalizedData = this.excelService.normalizeData(excelData);
+
+      // Traiter les données et créer les équipes
+      const result = await this.processExcelData(normalizedData, tournamentId);
+
+      // Générer le rapport
+      const report = this.excelService.generateImportReport(result);
+
+      logInfo('Import Excel réussi', { 
+        tournamentId, 
+        teamsCreated: result.teamsCreated.length,
+        playersCreated: result.playersCreated.length 
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Équipes importées avec succès",
+        data: report
+      });
+
+    } catch (error) {
+      logError('Erreur lors de l\'import Excel', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Erreur lors de l'import Excel"
+      });
+    }
+  }
+
+  // Traiter les données Excel et créer les équipes
+  async processExcelData(data, tournamentId) {
+    const teamsCreated = [];
+    const playersCreated = [];
+    const summary = {
+      totalRows: data.length,
+      teamsProcessed: 0,
+      playersProcessed: 0,
+      errors: []
+    };
+
+    // Grouper les données par équipe
+    const teamsData = this.excelService.groupDataByTeam(data);
+
+    // Traiter chaque équipe
+    for (const [teamName, players] of Object.entries(teamsData)) {
+      try {
+        // Chercher ou créer l'équipe
+        let team = await this.teamRepository.findTeamByName(tournamentId, teamName);
+        if (!team) {
+          team = await this.teamRepository.createTeamFromExcel(tournamentId, teamName);
+          teamsCreated.push(team);
+        }
+
+        summary.teamsProcessed++;
+
+        // Traiter chaque joueur de l'équipe
+        for (const playerRow of players) {
+          try {
+            const email = playerRow.email;
+            const name = playerRow.playerName;
+            const role = playerRow.role;
+            const skillLevel = playerRow.skillLevel;
+
+            // Chercher ou créer l'utilisateur
+            let user = await this.teamRepository.findUserByEmail(email);
+            if (!user) {
+              user = await this.teamRepository.createUser({
+                email,
+                name
+              });
+            }
+
+            // Créer le membre d'équipe
+            const member = await this.teamRepository.createTeamMemberFromExcel(team.id, {
+              userId: user.id,
+              role: role,
+              skillLevel: skillLevel
+            });
+
+            playersCreated.push(member);
+            summary.playersProcessed++;
+
+            // Si Capitaine, définir captain_id sur l'équipe
+            if (role && role.toLowerCase() === 'capitaine') {
+              await this.teamRepository.setTeamCaptain(team.id, user.id);
+            }
+
+          } catch (error) {
+            summary.errors.push(`Erreur pour le joueur ${playerRow.playerName}: ${error.message}`);
+          }
+        }
+
+      } catch (error) {
+        summary.errors.push(`Erreur pour l'équipe ${teamName}: ${error.message}`);
+      }
+    }
+
+    return {
+      teamsCreated,
+      playersCreated,
+      summary
+    };
   }
 }
