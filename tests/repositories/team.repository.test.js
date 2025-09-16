@@ -999,6 +999,21 @@ describe('TeamRepository', () => {
       });
       expect(result).toEqual(mockMember);
     });
+
+    it('devrait créer un membre avec rôle player si Joueur', async () => {
+      const teamId = 't-2';
+      const playerData = { userId: 'u-2', role: 'Joueur' };
+      const mockMember = { id: 'm-2', team_id: teamId, user_id: 'u-2', role: 'player' };
+      mockPrismaClient.team_member.create.mockResolvedValue(mockMember);
+
+      const result = await teamRepository.createTeamMemberFromExcel(teamId, playerData);
+
+      expect(mockPrismaClient.team_member.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ team_id: teamId, user_id: 'u-2', role: 'player', status: 'active', position: null }),
+        include: expect.any(Object)
+      });
+      expect(result).toEqual(mockMember);
+    });
   });
 
   // Nouveaux tests: setTeamCaptain
@@ -1017,6 +1032,14 @@ describe('TeamRepository', () => {
       });
       expect(result).toEqual(mockTeam);
     });
+
+    it('devrait lever une erreur si la mise à jour échoue', async () => {
+      const teamId = 't-err';
+      const userId = 'u-err';
+      mockPrismaClient.team.update.mockRejectedValue(new Error('update failed'));
+
+      await expect(teamRepository.setTeamCaptain(teamId, userId)).rejects.toThrow('update failed');
+    });
   });
 
   // Nouveaux tests: findTeamByName
@@ -1034,6 +1057,28 @@ describe('TeamRepository', () => {
         include: expect.any(Object)
       });
       expect(result).toEqual(mockTeam);
+    });
+
+    it('devrait retourner null si non trouvée', async () => {
+      const tournamentId = 'tr-2';
+      const name = 'Inconnue';
+      mockPrismaClient.team.findFirst.mockResolvedValue(null);
+
+      const result = await teamRepository.findTeamByName(tournamentId, name);
+
+      expect(mockPrismaClient.team.findFirst).toHaveBeenCalledWith({
+        where: { tournament_id: tournamentId, name },
+        include: expect.any(Object)
+      });
+      expect(result).toBeNull();
+    });
+  });
+
+  // Nouveaux tests: findUserByEmail (erreur)
+  describe('findUserByEmail', () => {
+    it('devrait lever une erreur si la requête échoue', async () => {
+      mockPrismaClient.profile.findFirst.mockRejectedValue(new Error('query failed'));
+      await expect(teamRepository.findUserByEmail('x@y.z')).rejects.toThrow('query failed');
     });
   });
 });
